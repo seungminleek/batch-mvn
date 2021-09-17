@@ -29,4 +29,5 @@ public class ExchangeDto {
     private double highPrice;
     private double lowPrice;
     private String provider;
+    private String ttBuyingPrice;
 }
