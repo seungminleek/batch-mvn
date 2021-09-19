@@ -28,6 +28,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 
 @Slf4j
 @RequiredArgsConstructor
@@ -113,8 +116,12 @@ public class BatchJob {
             transformer.setOutputProperty(OutputKeys.INDENT, "yes"); //들여쓰기
             transformer.setOutputProperty(OutputKeys.DOCTYPE_PUBLIC, "yes"); //doc.setXmlStandalone(true); 했을때 붙어서 출력되는부분 개행
             DOMSource source = new DOMSource(doc);
-            StreamResult result = new StreamResult(
-                    new FileOutputStream(new File("D://Asianaiidt/tempUpload/exchangeData.xml")));
+            
+            // 파일이름지정
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yy-MM-dd HH:mm:ss");
+            String fileNm = simpleDateFormat.format(new Date());
+            StreamResult result = new StreamResult(    // 파일경로지정
+                    new FileOutputStream(new File("/workspace/batch-mvn/src/main/resources/response/exchangeData.xml")));
 
             transformer.transform(source, result);
 
