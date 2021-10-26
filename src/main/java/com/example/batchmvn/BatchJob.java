@@ -1,6 +1,9 @@
 package com.example.batchmvn;
 
 import com.example.batchmvn.dto.ExchangeDto;
+import com.example.batchmvn.logic.AccessTokenMain;
+import com.example.batchmvn.logic.AuthTokenMain;
+import com.example.batchmvn.logic.RestController;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.batch.core.Job;
@@ -51,7 +54,7 @@ public class BatchJob {
     public Job job(){
         return jobBuilderFactory.get(BATCH_NAME)
                 .start(step1())
-                .next(step2())
+//                .next(step2())
                 .build();
     }
 
@@ -60,30 +63,50 @@ public class BatchJob {
      * @return Step
      */
     @Bean
-    public Step step1() {       //TODO: POST 방식으로 바꿔야함, json 형태로 request 하는 부분도 필요
-        ResponseEntity<ExchangeDto[]> response = restTemplate.getForEntity(bankApiUrl, ExchangeDto[].class );
-        // Map rqData = new HashMap<String, Object>();
+    public Step step1() {
+//        ResponseEntity<ExchangeDto[]> response = restTemplate.getForEntity(bankApiUrl, ExchangeDto[].class );
+//        // Map rqData = new HashMap<String, Object>();
+//
+//        // 하나은행에서 받아온 json 데이터를 엔티티로 변환
+//        ExchangeDto[] resultData = response.getBody();  // Body값을 받아서 buffer에 저장
+//        if (resultData != null) {
+//            exchangeData = Arrays.asList(resultData);       // LIST 형태로 변환
+//        }
+//
+//        if (exchangeData.size() > 0) {
+//            testData = exchangeData.get(0).getName();
+//        }
 
-        // 하나은행에서 받아온 json 데이터를 엔티티로 변환
-        ExchangeDto[] resultData = response.getBody();  // Body값을 받아서 buffer에 저장
-        if (resultData != null) {
-            exchangeData = Arrays.asList(resultData);       // LIST 형태로 변환
-        }
+        // 하나은행 개발 가이드 적용
+        AuthTokenMain authTokenMain = new AuthTokenMain();
+        AccessTokenMain accessTokenMain = new AccessTokenMain();
+        RestController restController = new RestController();
 
-        if (exchangeData.size() > 0) {
-            testData = exchangeData.get(0).getName();
-        }
+        // 에어서울용 개발키
+        String clientId     = "f4422686-e717-4403-b4c7-aefd8204df68";
+        String clientSecret = "e5a98f9b711b81afe6f98010c3014b93";
+        String encKey       = "airseoul11R211007003";   // 20byte
+        String entrCd       = "AIR4530155";     // 10byte
 
+        String encKeyNew = encKey + entrCd + "@@"; // encKey 32byte 재조립 encKey + entrCd + @@
+
+        // accessToken 발급
+        String encToken = authTokenMain.createToken();
+        String token = authTokenMain.decrypt(encKeyNew, encToken);
+        token = token.split(":")[0];  // 이러면 client id가 담기잖아?
+
+        // 환율api 호출
+        String response = restController.callingApi(token);
+        System.out.println("--------------------- 하나은행 API호출 완료 -----------------------" + response);
         return stepBuilderFactory.get(BATCH_NAME + "Step1")
                 .tasklet((stepContribution, chunkContext) -> {
-                    log.info(BATCH_NAME + "@@@@@@@ Step1 Started :: testData :::::" + testData);
+                    log.info(BATCH_NAME + "@@@@@@@ Step1 Started 하나은행 API호출 완료 :::::::");
                     return RepeatStatus.FINISHED;
                 }).build();
     }
 
     /**
      * XML 파일 생성하기
-     * 일단 여기 메소드로 만들어서 단독 로직파일로 빼내기
      * @return Step
      */
     @Bean
@@ -125,25 +148,15 @@ public class BatchJob {
             DOMSource source = new DOMSource(doc);
             
             // 파일이름지정
-            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yy-MM-dd HH:mm:ss");
-            String fileNm = simpleDateFormat.format(new Date());
-            StreamResult result = new StreamResult(    // 파일경로지정
-                    new FileOutputStream(new File("D://Asianaiidt/batch-mvn/src/main/resources/response/exchangeData.xml")));
-
-            transformer.transform(source, result);
+//            SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyMMddHHmmss");
+//            String fileNm = simpleDateFormat.format(new Date());
+//            StreamResult result = new StreamResult(    // 파일경로지정
+//                    new FileOutputStream(new File("D://Asianaiidt/batch-mvn/src/main/resources/response/"+ fileNm + ".xml")));
+//
+//            transformer.transform(source, result);
 
             log.info((BATCH_NAME + "========= xml 파일 생성 완료 ========="));
 
-            /* 20210919 todo
-             * 1. ibs xml 파일 가지고오기 -> 파일구조
-             * 2. sftp 서버 접속 및 업로드 하는 방법
-             * 3. log 생성하는 방법
-             *  1) 하나은행 api 호출 로그
-             *  2) 업로드된 로그
-             * 4.
-             * 5. vdi 에서 구름 build run
-             * + ibs api document
-             */
 
         } catch (Exception e){
             e.printStackTrace();
@@ -154,14 +167,6 @@ public class BatchJob {
                     log.info((BATCH_NAME + "@@@@@@@  Step2 Started"));
                     return RepeatStatus.FINISHED;
                 }).build();
-    }
-
-    /**
-     * 최종 고시된 환율정보 데이터의 유무 확인
-     * @return boolean
-     */
-    private boolean isNotInitialized() {
-        return this.exchangeData == null;
     }
 
 }
